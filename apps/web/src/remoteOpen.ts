@@ -22,7 +22,10 @@ import * as Schema from "effect/Schema";
 import { useEffect, useMemo, useState } from "react";
 
 import { desktopLocalBackendId, isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
-import { useDesktopLocalBootstraps } from "~/connection/useDesktopLocalBootstraps";
+import {
+  useDesktopLocalBootstraps,
+  useDesktopPrimaryWslDistro,
+} from "~/connection/useDesktopLocalBootstraps";
 import { isLoopbackHostname } from "~/environments/primary/target";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useEnvironmentPresentation } from "~/state/presentation";
@@ -52,6 +55,11 @@ const UNRESOLVED_REMOTE_OPEN: RemoteOpenResolution = {
   isResolved: false,
 };
 
+const wslLinks = (distro: string): RemoteOpenState => ({
+  mode: "remote-links",
+  host: { kind: "wsl", host: distro },
+});
+
 function parseHostname(url: string): string | null {
   try {
     return new URL(url).hostname;
@@ -68,7 +76,11 @@ export function resolveRemoteOpenState(input: {
   readonly remoteOpenTargets: ReadonlyArray<RemoteOpenTarget> | undefined;
   /** True when running inside the desktop app's renderer. */
   readonly isDesktopRenderer: boolean;
-  /** Running distro of a desktop-local WSL backend; null when unknown or not WSL. */
+  /**
+   * Running distro when the environment's server lives inside WSL on this
+   * machine: a desktop-local WSL backend, or the primary in wsl-only mode.
+   * Null when unknown or not WSL.
+   */
   readonly wslDistro?: string | null;
 }): RemoteOpenState {
   const { target } = input;
@@ -82,7 +94,7 @@ export function resolveRemoteOpenState(input: {
     // the WSL2 NAT address). In a browser, a loopback primary means the
     // browser runs on the serving machine; a tailnet/LAN URL means remote.
     if (input.isDesktopRenderer) {
-      return LOCAL_EXEC;
+      return input.wslDistro ? wslLinks(input.wslDistro) : LOCAL_EXEC;
     }
     const hostname = parseHostname(target.httpBaseUrl);
     if (hostname !== null && isLoopbackHostname(hostname)) {
@@ -94,7 +106,7 @@ export function resolveRemoteOpenState(input: {
     // the editor's own `wsl+<distro>` deep link instead; without a known
     // distro, fall back to exec inside the distro.
     if (input.isDesktopRenderer && input.wslDistro) {
-      return { mode: "remote-links", host: { kind: "wsl", host: input.wslDistro } };
+      return wslLinks(input.wslDistro);
     }
     return LOCAL_EXEC;
   }
@@ -118,7 +130,12 @@ export function resolveDesktopWslDistro(input: {
   readonly target: ConnectionTarget;
   readonly httpBaseUrl: string | null;
   readonly bootstraps: ReadonlyArray<DesktopEnvironmentBootstrap>;
+  /** Primary backend's distro in wsl-only mode; null in dual mode. */
+  readonly primaryWslDistro?: string | null;
 }): string | null {
+  if (input.target._tag === "PrimaryConnectionTarget") {
+    return input.primaryWslDistro ?? null;
+  }
   const backendId = desktopLocalBackendId(input.target);
   if (backendId === null || !backendId.startsWith("wsl:") || input.httpBaseUrl === null) {
     return null;
@@ -130,6 +147,7 @@ export function resolveDesktopWslDistro(input: {
 export function useRemoteOpenResolution(environmentId: EnvironmentId | null): RemoteOpenResolution {
   const { presentation } = useEnvironmentPresentation(environmentId);
   const bootstraps = useDesktopLocalBootstraps();
+  const primaryWslDistro = useDesktopPrimaryWslDistro();
 
   return useMemo(() => {
     if (presentation === null) {
@@ -148,11 +166,12 @@ export function useRemoteOpenResolution(environmentId: EnvironmentId | null): Re
           target: presentation.entry.target,
           httpBaseUrl: connectionCatalogDisplayUrl(presentation.entry),
           bootstraps,
+          primaryWslDistro,
         }),
       }),
       isResolved: true,
     };
-  }, [bootstraps, presentation]);
+  }, [bootstraps, presentation, primaryWslDistro]);
 }
 
 export function useRemoteOpenState(environmentId: EnvironmentId | null): RemoteOpenState {
