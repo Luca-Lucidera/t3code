@@ -10,6 +10,7 @@ import {
   desktopLocalBackendId,
   desktopLocalConnectionId,
   isDesktopLocalConnectionTarget,
+  readDesktopPrimaryWslDistro,
 } from "./desktopLocal";
 
 describe("desktop local connection identity", () => {
@@ -103,5 +104,47 @@ describe("desktop local topology reads", () => {
       throw new Error("IPC unavailable again");
     };
     expect(reader.readSnapshot()).toBe(removedSnapshot);
+  });
+});
+
+describe("readDesktopPrimaryWslDistro", () => {
+  it("returns the primary's running distro in wsl-only mode", () => {
+    expect(
+      readDesktopPrimaryWslDistro(() => ({
+        getLocalEnvironmentBootstraps: () => [
+          {
+            id: PRIMARY_LOCAL_ENVIRONMENT_ID,
+            label: "WSL (Ubuntu)",
+            runningDistro: "Ubuntu",
+            httpBaseUrl: "http://172.20.0.1:3100",
+            wsBaseUrl: "ws://172.20.0.1:3100",
+          },
+        ],
+      })),
+    ).toBe("Ubuntu");
+  });
+
+  it("returns null in dual mode, outside the desktop, or when the read fails", () => {
+    expect(
+      readDesktopPrimaryWslDistro(() => ({
+        getLocalEnvironmentBootstraps: () => [
+          {
+            id: PRIMARY_LOCAL_ENVIRONMENT_ID,
+            label: "Local",
+            runningDistro: null,
+            httpBaseUrl: "http://127.0.0.1:3100",
+            wsBaseUrl: "ws://127.0.0.1:3100",
+          },
+        ],
+      })),
+    ).toBeNull();
+    expect(readDesktopPrimaryWslDistro(() => undefined)).toBeNull();
+    expect(
+      readDesktopPrimaryWslDistro(() => ({
+        getLocalEnvironmentBootstraps: () => {
+          throw new Error("bridge unavailable");
+        },
+      })),
+    ).toBeNull();
   });
 });

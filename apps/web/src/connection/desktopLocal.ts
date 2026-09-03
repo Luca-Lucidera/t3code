@@ -102,3 +102,26 @@ export function readDesktopSecondaryBootstrapsResult(): DesktopSecondaryBootstra
 export function readDesktopSecondaryBootstraps(): ReadonlyArray<DesktopEnvironmentBootstrap> {
   return desktopSecondaryBootstrapsReader.readSnapshot();
 }
+
+/**
+ * Running WSL distro of the desktop's primary backend, set only in wsl-only
+ * mode where the primary itself runs inside WSL. Null outside the desktop, in
+ * dual mode, or while the primary has not reported a config yet.
+ */
+export function readDesktopPrimaryWslDistro(
+  resolveBridge: () => Pick<DesktopBridge, "getLocalEnvironmentBootstraps"> | undefined = () =>
+    window.desktopBridge,
+): string | null {
+  const bridge = resolveBridge();
+  if (bridge === undefined) {
+    return null;
+  }
+  try {
+    const primary = bridge
+      .getLocalEnvironmentBootstraps()
+      .find((entry) => entry.id === PRIMARY_LOCAL_ENVIRONMENT_ID);
+    return primary?.runningDistro?.trim() || null;
+  } catch {
+    return null;
+  }
+}

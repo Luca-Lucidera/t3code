@@ -1,7 +1,7 @@
 import type { DesktopEnvironmentBootstrap } from "@t3tools/contracts";
 import { useEffect, useState } from "react";
 
-import { readDesktopSecondaryBootstraps } from "./desktopLocal";
+import { readDesktopPrimaryWslDistro, readDesktopSecondaryBootstraps } from "./desktopLocal";
 
 const DESKTOP_LOCAL_BOOTSTRAP_POLL_MS = 2_000;
 
@@ -25,4 +25,19 @@ export function useDesktopLocalBootstraps(): ReadonlyArray<DesktopEnvironmentBoo
   }, []);
 
   return bootstraps;
+}
+
+/** Reactively track the primary backend's WSL distro (wsl-only mode). */
+export function useDesktopPrimaryWslDistro(): string | null {
+  const [distro, setDistro] = useState<string | null>(() => readDesktopPrimaryWslDistro());
+
+  useEffect(() => {
+    if (window.desktopBridge === undefined) return;
+    const read = () => setDistro(readDesktopPrimaryWslDistro());
+    read();
+    const interval = setInterval(read, DESKTOP_LOCAL_BOOTSTRAP_POLL_MS);
+    return () => clearInterval(interval);
+  }, []);
+
+  return distro;
 }

@@ -219,6 +219,37 @@ describe("WSL desktop-local backends", () => {
     ).toEqual({ mode: "local-exec" });
   });
 
+  it("uses wsl deep links for the desktop primary in wsl-only mode", () => {
+    expect(
+      resolveRemoteOpenState({
+        target: primaryTarget("http://172.20.0.1:3100"),
+        sshAlias: null,
+        isDesktopRenderer: true,
+        remoteOpenTargets: undefined,
+        wslDistro: "Ubuntu",
+      }),
+    ).toEqual({ mode: "remote-links", host: { kind: "wsl", host: "Ubuntu" } });
+  });
+
+  it("takes the primary's distro from the wsl-only primary, not the bootstrap list", () => {
+    expect(
+      resolveDesktopWslDistro({
+        target: primaryTarget("http://172.20.0.1:3100"),
+        httpBaseUrl: "http://172.20.0.1:3100",
+        bootstraps: [],
+        primaryWslDistro: "Ubuntu",
+      }),
+    ).toBe("Ubuntu");
+    expect(
+      resolveDesktopWslDistro({
+        target: primaryTarget("http://127.0.0.1:3100"),
+        httpBaseUrl: "http://127.0.0.1:3100",
+        bootstraps: [],
+        primaryWslDistro: null,
+      }),
+    ).toBeNull();
+  });
+
   it("builds a wsl deep link", () => {
     expect(
       buildRemoteOpenUrl({
