@@ -9,8 +9,10 @@
  * name beats mDNS `<hostname>.local` (server sends them in that order).
  */
 import type { ConnectionTarget } from "@t3tools/client-runtime/connection";
+import { connectionCatalogDisplayUrl } from "@t3tools/client-runtime/connection";
 import {
   REMOTE_CAPABLE_EDITOR_IDS,
+  type DesktopEnvironmentBootstrap,
   type EditorId,
   type EnvironmentId,
   type RemoteOpenTarget,
@@ -19,13 +21,15 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { useEffect, useMemo, useState } from "react";
 
-import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
+import { desktopLocalBackendId, isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
+import { useDesktopLocalBootstraps } from "~/connection/useDesktopLocalBootstraps";
 import { isLoopbackHostname } from "~/environments/primary/target";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useEnvironmentPresentation } from "~/state/presentation";
 
 export interface RemoteOpenHost {
-  readonly kind: "ssh-alias" | RemoteOpenTarget["kind"];
+  readonly kind: "ssh-alias" | "wsl" | RemoteOpenTarget["kind"];
+  /** SSH host name, or the WSL distro name for `kind: "wsl"`. */
   readonly host: string;
 }
 
@@ -64,6 +68,8 @@ export function resolveRemoteOpenState(input: {
   readonly remoteOpenTargets: ReadonlyArray<RemoteOpenTarget> | undefined;
   /** True when running inside the desktop app's renderer. */
   readonly isDesktopRenderer: boolean;
+  /** Running distro of a desktop-local WSL backend; null when unknown or not WSL. */
+  readonly wslDistro?: string | null;
 }): RemoteOpenState {
   const { target } = input;
   // No catalog entry: keep today's exec behavior rather than guessing.
@@ -83,6 +89,13 @@ export function resolveRemoteOpenState(input: {
       return LOCAL_EXEC;
     }
   } else if (isDesktopLocalConnectionTarget(target)) {
+    // A WSL backend runs on this machine, but its Linux PATH rarely carries
+    // the Windows editors. The desktop app opens them from the host through
+    // the editor's own `wsl+<distro>` deep link instead; without a known
+    // distro, fall back to exec inside the distro.
+    if (input.isDesktopRenderer && input.wslDistro) {
+      return { mode: "remote-links", host: { kind: "wsl", host: input.wslDistro } };
+    }
     return LOCAL_EXEC;
   }
 
@@ -96,8 +109,27 @@ export function resolveRemoteOpenState(input: {
   return REMOTE_UNAVAILABLE;
 }
 
+/**
+ * Running distro of a desktop-local WSL backend. The catalog only knows the
+ * backend id ("wsl:ubuntu" or the default-tracking "wsl:default"), so the
+ * concrete distro comes from the desktop bootstrap serving the same URL.
+ */
+export function resolveDesktopWslDistro(input: {
+  readonly target: ConnectionTarget;
+  readonly httpBaseUrl: string | null;
+  readonly bootstraps: ReadonlyArray<DesktopEnvironmentBootstrap>;
+}): string | null {
+  const backendId = desktopLocalBackendId(input.target);
+  if (backendId === null || !backendId.startsWith("wsl:") || input.httpBaseUrl === null) {
+    return null;
+  }
+  const bootstrap = input.bootstraps.find((entry) => entry.httpBaseUrl === input.httpBaseUrl);
+  return bootstrap?.runningDistro?.trim() || null;
+}
+
 export function useRemoteOpenResolution(environmentId: EnvironmentId | null): RemoteOpenResolution {
   const { presentation } = useEnvironmentPresentation(environmentId);
+  const bootstraps = useDesktopLocalBootstraps();
 
   return useMemo(() => {
     if (presentation === null) {
@@ -112,10 +144,15 @@ export function useRemoteOpenResolution(environmentId: EnvironmentId | null): Re
         sshAlias,
         remoteOpenTargets: presentation.serverConfig?.remoteOpenTargets,
         isDesktopRenderer: window.desktopBridge !== undefined,
+        wslDistro: resolveDesktopWslDistro({
+          target: presentation.entry.target,
+          httpBaseUrl: connectionCatalogDisplayUrl(presentation.entry),
+          bootstraps,
+        }),
       }),
       isResolved: true,
     };
-  }, [presentation]);
+  }, [bootstraps, presentation]);
 }
 
 export function useRemoteOpenState(environmentId: EnvironmentId | null): RemoteOpenState {

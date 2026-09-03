@@ -1,5 +1,6 @@
 import {
   buildRemoteOpenUrl,
+  supportsRemoteOpenAuthority,
   EditorId,
   type EnvironmentId,
   type ResolvedKeybindingsConfig,
@@ -245,8 +246,19 @@ export const OpenInPicker = memo(function OpenInPicker({
     useAtomValue(serverEnvironment.configValueAtom(environmentId))?.availableEditors ??
     EMPTY_EDITORS;
   // Remote mode ignores the server's PATH probe: what matters is what runs on
-  // the viewing machine, which only the desktop app can probe.
-  const effectiveEditors = remote.mode === "local-exec" ? availableEditors : remoteCapableEditors;
+  // the viewing machine, which only the desktop app can probe. A WSL backend
+  // keeps the server's Explorer bridge for the file manager.
+  const isWslLinks = remote.mode === "remote-links" && remote.host.kind === "wsl";
+  const effectiveEditors = useMemo(() => {
+    if (remote.mode === "local-exec") return availableEditors;
+    if (!isWslLinks) return remoteCapableEditors;
+    const wslEditors = remoteCapableEditors.filter((editor) =>
+      supportsRemoteOpenAuthority(editor, "wsl"),
+    );
+    return availableEditors.includes("file-manager")
+      ? [...wslEditors, "file-manager" as const]
+      : wslEditors;
+  }, [availableEditors, isWslLinks, remote.mode, remoteCapableEditors]);
   const [preferredEditor, setPreferredEditor] = usePreferredEditor(effectiveEditors);
   const options = useMemo(
     () => resolveOpenInOptions(navigator.platform, effectiveEditors),
@@ -260,11 +272,12 @@ export const OpenInPicker = memo(function OpenInPicker({
       const editor = editorId ?? preferredEditor;
       if (!editor) return;
       if (remote.mode === "remote-unavailable") return;
-      if (remote.mode === "remote-links") {
+      if (remote.mode === "remote-links" && editor !== "file-manager") {
         const url = buildRemoteOpenUrl({
           editor,
           host: remote.host.host,
           absolutePath: openInCwd,
+          authority: remote.host.kind === "wsl" ? "wsl" : "ssh-remote",
         });
         if (url === undefined) return;
         // Only record hint-seen/preferred when the shell actually accepted
@@ -342,7 +355,7 @@ export const OpenInPicker = memo(function OpenInPicker({
               )}
             </MenuItem>
           ))}
-          {remote.mode === "remote-links" && !remoteHintSeen && (
+          {remote.mode === "remote-links" && !isWslLinks && !remoteHintSeen && (
             <MenuItem density={presentation === "menu" ? "touch" : "default"} disabled>
               Opens over SSH. Needs your key on {environmentLabel}
             </MenuItem>
