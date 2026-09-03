@@ -123,6 +123,16 @@ export function useRemoteOpenState(environmentId: EnvironmentId | null): RemoteO
 }
 
 /**
+ * True for host-managed local backends the desktop app runs next to its
+ * primary (today: the WSL backend). Their server execs editors on this
+ * machine, so they get the same "Open" affordance as the primary.
+ */
+export function useIsDesktopLocalEnvironment(environmentId: EnvironmentId | null): boolean {
+  const { presentation } = useEnvironmentPresentation(environmentId);
+  return presentation !== null && isDesktopLocalConnectionTarget(presentation.entry.target);
+}
+
+/**
  * Editors offered in remote-link mode. The desktop app probes the machine the
  * renderer runs on; a browser cannot, so it offers VS Code only.
  */

@@ -339,7 +339,6 @@ import { useKnownTerminalSessions, useThreadRunningTerminalIds } from "../state/
 import { useEnvironmentQuery } from "../state/query";
 import {
   environmentServerConfigsAtom,
-  primaryServerAvailableEditorsAtom,
   primaryServerKeybindingsAtom,
   serverEnvironment,
 } from "../state/server";
@@ -3662,7 +3661,6 @@ export default function ChatView(props: ChatViewProps) {
     resourceKey: `git-status:${activeThreadKey ?? ""}:${gitStatusCwd ?? ""}`,
   });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
-  const availableEditors = useAtomValue(primaryServerAvailableEditorsAtom);
   const manualCompactionProviderAvailable = useMemo(
     () =>
       hasAvailableCompactionProvider({
@@ -9735,7 +9733,6 @@ export default function ChatView(props: ChatViewProps) {
           threadRef={activeThreadRef}
           composerDraftTarget={composerDraftTarget}
           keybindings={keybindings}
-          availableEditors={availableEditors}
           relativePath={
             renderedRightPanelSurface.kind === "file"
               ? renderedRightPanelSurface.relativePath
@@ -9835,7 +9832,6 @@ export default function ChatView(props: ChatViewProps) {
               activeProject ? (lastInvokedScriptByProjectId[activeProject.id] ?? null) : null
             }
             keybindings={keybindings}
-            availableEditors={availableEditors}
             rightPanelOpen={rightPanelOpen}
             gitCwd={gitCwd}
             onNewThreadInProject={handleNewThreadInActiveProject}
