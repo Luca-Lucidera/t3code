@@ -60,6 +60,17 @@ const wslLinks = (distro: string): RemoteOpenState => ({
   host: { kind: "wsl", host: distro },
 });
 
+/**
+ * Whether the environment's server can run shell actions (open in editor, reveal in file
+ * manager) on the user's machine. True for local exec and for WSL, where the server runs inside
+ * the distro on the same machine and only editor links are routed through the Windows host.
+ */
+export function canExecOnServer(state: RemoteOpenState): boolean {
+  return (
+    state.mode === "local-exec" || (state.mode === "remote-links" && state.host.kind === "wsl")
+  );
+}
+
 function parseHostname(url: string): string | null {
   try {
     return new URL(url).hostname;
