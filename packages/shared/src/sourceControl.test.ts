@@ -43,6 +43,17 @@ describe("parseGitRemote", () => {
     });
   });
 
+  it("marks only SSH transports as SSH", () => {
+    expect(parseGitRemote("git+ssh://git@git.example.test/group/repo.git")?.ssh).toBe(true);
+    // The git daemon protocol is read-only and not SSH; its checkouts must not switch to SSH URLs.
+    expect(parseGitRemote("git://git.example.test:9418/group/repo.git")).toEqual({
+      host: "git.example.test:9418",
+      hostname: "git.example.test",
+      ssh: false,
+      path: "group/repo",
+    });
+  });
+
   it("gives no host for local paths", () => {
     for (const path of [
       "/srv/repo.git",
@@ -215,6 +226,11 @@ describe("isSshRemoteUrl", () => {
     expect(isSshRemoteUrl("ssh://git@gitlab.example.com:22/group/project.git")).toBe(true);
     expect(isSshRemoteUrl("SSH://git@gitlab.example.com/group/project.git")).toBe(true);
     expect(isSshRemoteUrl("SsH://git@gitlab.example.com/group/project.git")).toBe(true);
+  });
+
+  it("recognises SCP-like SSH URLs without a user, as git does", () => {
+    expect(isSshRemoteUrl("gitlab.example.com:group/project.git")).toBe(true);
+    expect(isSshRemoteUrl("git://gitlab.example.com/group/project.git")).toBe(false);
   });
 
   it("returns false for HTTPS, local paths, and SCP-like paths without a colon", () => {

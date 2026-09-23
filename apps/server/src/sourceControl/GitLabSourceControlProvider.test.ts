@@ -296,6 +296,7 @@ git.example.test
 it("does not refine a remote on a host glab is not signed in to", () => {
   assert.strictEqual(refineRemote("ssh://git@other.example.test:8888/group/project.git"), null);
   assert.strictEqual(refineRemote("git@gitlab.com:group/project.git"), null);
+  assert.strictEqual(refineRemote("git://git.example.test/group/project.git"), null);
 });
 
 it("parses authenticated GitLab auth status hosts with ports and single-label names", () => {

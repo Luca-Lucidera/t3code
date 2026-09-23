@@ -139,11 +139,8 @@ export function getChangeRequestTerminologyForKind(
   };
 }
 
-const SCP_SSH_REMOTE_PATTERN = /^[a-zA-Z0-9._-]+@([^:/]+):/;
-
 export function isSshRemoteUrl(remoteUrl: string): boolean {
-  const trimmed = remoteUrl.trim();
-  return SCP_SSH_REMOTE_PATTERN.test(trimmed) || trimmed.toLowerCase().startsWith("ssh://");
+  return parseGitRemote(remoteUrl)?.ssh === true;
 }
 
 export interface GitRemote {
@@ -151,7 +148,7 @@ export interface GitRemote {
   readonly host: string;
   /** Lower case, without the port. */
   readonly hostname: string;
-  /** True when the remote is not a web URL, so a port it names is not the web host's. */
+  /** True for SSH remotes, whose port is the SSH daemon's and never the web host's. */
   readonly ssh: boolean;
   /** The repository path below the host, without `.git`. */
   readonly path: string;
@@ -171,7 +168,8 @@ export function parseGitRemote(remoteUrl: string): GitRemote | null {
       return {
         host: url.host.toLowerCase(),
         hostname: url.hostname.toLowerCase(),
-        ssh: url.protocol !== "http:" && url.protocol !== "https:",
+        // `git+ssh://` and `ssh+git://` are git's own spellings of `ssh://`.
+        ssh: /^(?:ssh|git\+ssh|ssh\+git):$/u.test(url.protocol),
         path: url.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/, ""),
       };
     } catch {

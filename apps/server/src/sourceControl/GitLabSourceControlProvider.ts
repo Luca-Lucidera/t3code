@@ -87,7 +87,10 @@ function parseGitLabAuth(input: SourceControlAuthProbeInput) {
  */
 function refineUnknownGitLabRemote(input: SourceControlUnknownRemoteRefinementInput) {
   const remote = parseGitRemote(input.context.remoteUrl);
-  if (remote === null) return null;
+  // Only SSH and web remotes name a host glab can be signed in to; `git://` is read-only.
+  if (remote === null || (!remote.ssh && !/^https?:\/\//iu.test(input.context.remoteUrl.trim()))) {
+    return null;
+  }
   const signedIn = parseGitLabAuthStatusHosts(combinedAuthOutput(input.auth)).filter(
     (entry) => entry.account !== null,
   );
