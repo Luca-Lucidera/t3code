@@ -83,7 +83,8 @@ function parseGitLabAuth(input: SourceControlAuthProbeInput) {
 /**
  * Recognises a self-hosted GitLab whose hostname does not name it, when glab is signed in to it.
  * glab lists the web host. A web remote names that host exactly; an SSH remote's port is the SSH
- * daemon's, so only its hostname can match, preferring a signed-in host without a port.
+ * daemon's, so only its hostname can match: a signed-in host without a port, or else the one
+ * signed-in host on that hostname.
  */
 function refineUnknownGitLabRemote(input: SourceControlUnknownRemoteRefinementInput) {
   const remote = parseGitRemote(input.context.remoteUrl);
@@ -94,11 +95,13 @@ function refineUnknownGitLabRemote(input: SourceControlUnknownRemoteRefinementIn
   const signedIn = parseGitLabAuthStatusHosts(combinedAuthOutput(input.auth)).filter(
     (entry) => entry.account !== null,
   );
+  const portQualified = signedIn.filter(
+    (candidate) => parseGitRemote(`https://${candidate.host}`)?.hostname === remote.hostname,
+  );
+  // Two web ports on the SSH remote's hostname are two installs; guessing one is worse than none.
   const entry = remote.ssh
     ? (signedIn.find((candidate) => candidate.host === remote.hostname) ??
-      signedIn.find(
-        (candidate) => parseGitRemote(`https://${candidate.host}`)?.hostname === remote.hostname,
-      ))
+      (portQualified.length === 1 ? portQualified[0] : undefined))
     : signedIn.find((candidate) => candidate.host === remote.host);
   if (entry === undefined) return null;
 

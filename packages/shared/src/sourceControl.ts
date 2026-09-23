@@ -164,7 +164,8 @@ export function parseGitRemote(remoteUrl: string): GitRemote | null {
   if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(value)) {
     try {
       const url = new URL(value);
-      if (url.host.length === 0) return null;
+      // `file://host/path` names a filesystem, not a server a provider could be signed in to.
+      if (url.protocol === "file:" || url.host.length === 0) return null;
       return {
         host: url.host.toLowerCase(),
         hostname: url.hostname.toLowerCase(),

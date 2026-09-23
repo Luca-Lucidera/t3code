@@ -293,6 +293,15 @@ git.example.test
   );
 });
 
+it("does not guess between two web ports on an SSH remote's hostname", () => {
+  const twoPorts = authOutput(`git.example.test:8080
+  ✓ Logged in to git.example.test:8080 as first-user
+git.example.test:9090
+  ✓ Logged in to git.example.test:9090 as second-user
+`);
+  assert.strictEqual(refineRemote("git@git.example.test:group/project.git", twoPorts), null);
+});
+
 it("does not refine a remote on a host glab is not signed in to", () => {
   assert.strictEqual(refineRemote("ssh://git@other.example.test:8888/group/project.git"), null);
   assert.strictEqual(refineRemote("git@gitlab.com:group/project.git"), null);

@@ -60,6 +60,7 @@ describe("parseGitRemote", () => {
       "C:\\repos\\repo",
       "C:/repos/repo",
       "file:///srv/repo.git",
+      "file://git.example.test/srv/repo.git",
     ]) {
       expect(parseGitRemote(path)).toBeNull();
     }
