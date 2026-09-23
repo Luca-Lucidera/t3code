@@ -3907,6 +3907,7 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
           "gitlab.example:group/maria/project.git",
         ),
       ).toBe("group/maria/project");
+      expect(GitManager.parseRepositoryNameWithOwnerFromRemoteUrl("C:group/project")).toBeNull();
     }),
   );
 

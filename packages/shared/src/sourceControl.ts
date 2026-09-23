@@ -177,8 +177,8 @@ export function parseGitRemote(remoteUrl: string): GitRemote | null {
       return null;
     }
   }
-  // Git reads a drive letter as a local path, not as a one-letter SCP host.
-  if (/^[a-z]:[\\/]/iu.test(value)) return null;
+  // Git reads a drive letter, drive-relative `C:repo` included, as a local path, not an SCP host.
+  if (/^[a-z]:/iu.test(value)) return null;
   const scp = /^(?:[^@/]+@)?(\[[^\]/]+\]|[^:/]+):([^/].*)$/u.exec(value);
   if (!scp?.[1] || !scp[2]) return null;
   const host = scp[1].toLowerCase();

@@ -290,7 +290,8 @@ export function parseRepositoryNameWithOwnerFromRemoteUrl(
   providerKind?: ChangeRequest["provider"],
 ): string | null {
   const trimmed = url?.trim() ?? "";
-  if (trimmed.length === 0) {
+  // A drive letter (`C:repo`, `C:\repo`) is a local path, not a one-letter SCP host.
+  if (trimmed.length === 0 || /^[a-z]:/iu.test(trimmed)) {
     return null;
   }
 
