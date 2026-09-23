@@ -2,6 +2,7 @@ import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { SourceControlProviderError, type ChangeRequest } from "@t3tools/contracts";
+import { parseGitRemote } from "@t3tools/shared/sourceControl";
 
 import * as GitLabCli from "./GitLabCli.ts";
 import * as SourceControlProvider from "./SourceControlProvider.ts";
@@ -79,20 +80,31 @@ function parseGitLabAuth(input: SourceControlAuthProbeInput) {
   });
 }
 
+/**
+ * Recognises a self-hosted GitLab whose hostname does not name it, when glab is signed in to it.
+ * glab lists the web host. A web remote names that host exactly; an SSH remote's port is the SSH
+ * daemon's, so only its hostname can match, preferring a signed-in host without a port.
+ */
 function refineUnknownGitLabRemote(input: SourceControlUnknownRemoteRefinementInput) {
-  const host = input.context.provider.name.toLowerCase();
-  const authenticated = parseGitLabAuthStatusHosts(combinedAuthOutput(input.auth)).some(
-    (entry) => entry.account !== null && entry.host === host,
+  const remote = parseGitRemote(input.context.remoteUrl);
+  if (remote === null) return null;
+  const signedIn = parseGitLabAuthStatusHosts(combinedAuthOutput(input.auth)).filter(
+    (entry) => entry.account !== null,
   );
-
-  if (!authenticated) {
-    return null;
-  }
+  const entry = remote.ssh
+    ? (signedIn.find((candidate) => candidate.host === remote.hostname) ??
+      signedIn.find(
+        (candidate) => parseGitRemote(`https://${candidate.host}`)?.hostname === remote.hostname,
+      ))
+    : signedIn.find((candidate) => candidate.host === remote.host);
+  if (entry === undefined) return null;
 
   return {
     kind: "gitlab",
     name: "GitLab Self-Hosted",
-    baseUrl: input.context.provider.baseUrl,
+    baseUrl: remote.ssh
+      ? `${entry.apiProtocol ?? "https"}://${entry.host}`
+      : new URL(input.context.remoteUrl.trim()).origin,
   } as const;
 }
 

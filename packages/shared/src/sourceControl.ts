@@ -146,30 +146,44 @@ export function isSshRemoteUrl(remoteUrl: string): boolean {
   return SCP_SSH_REMOTE_PATTERN.test(trimmed) || trimmed.toLowerCase().startsWith("ssh://");
 }
 
-function parseRemoteHost(remoteUrl: string): string | null {
-  const trimmed = remoteUrl.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-
-  const scpMatch = SCP_SSH_REMOTE_PATTERN.exec(trimmed);
-  if (scpMatch?.[1]) {
-    return scpMatch[1].toLowerCase();
-  }
-
-  try {
-    return new URL(trimmed).host.toLowerCase();
-  } catch {
-    return null;
-  }
+export interface GitRemote {
+  /** Lower case, with the port when the remote names one. */
+  readonly host: string;
+  /** Lower case, without the port. */
+  readonly hostname: string;
+  /** True when the remote is not a web URL, so a port it names is not the web host's. */
+  readonly ssh: boolean;
+  /** The repository path below the host, without `.git`. */
+  readonly path: string;
 }
 
-function parseHostName(host: string): string {
-  try {
-    return new URL(`https://${host}`).hostname.toLowerCase();
-  } catch {
-    return host.replace(/:\d+$/u, "").toLowerCase();
+/**
+ * The host and path of a git remote: a URL of any scheme, or the SCP form `[user@]host:path`,
+ * whose user is optional. Local paths (`/srv/repo.git`, `C:\repo`, `file://`) have no host and
+ * give null.
+ */
+export function parseGitRemote(remoteUrl: string): GitRemote | null {
+  const value = remoteUrl.trim();
+  if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(value)) {
+    try {
+      const url = new URL(value);
+      if (url.host.length === 0) return null;
+      return {
+        host: url.host.toLowerCase(),
+        hostname: url.hostname.toLowerCase(),
+        ssh: url.protocol !== "http:" && url.protocol !== "https:",
+        path: url.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/, ""),
+      };
+    } catch {
+      return null;
+    }
   }
+  // Git reads a drive letter as a local path, not as a one-letter SCP host.
+  if (/^[a-z]:[\\/]/iu.test(value)) return null;
+  const scp = /^(?:[^@/]+@)?(\[[^\]/]+\]|[^:/]+):([^/].*)$/u.exec(value);
+  if (!scp?.[1] || !scp[2]) return null;
+  const host = scp[1].toLowerCase();
+  return { host, hostname: host, ssh: true, path: scp[2].replace(/\.git$/, "") };
 }
 
 function toBaseUrl(host: string): string {
@@ -207,11 +221,11 @@ function isBitbucketHost(host: string): boolean {
 export function detectSourceControlProviderFromRemoteUrl(
   remoteUrl: string,
 ): SourceControlProviderInfo | null {
-  const host = parseRemoteHost(remoteUrl);
-  if (!host) {
+  const remote = parseGitRemote(remoteUrl);
+  if (!remote) {
     return null;
   }
-  const hostname = parseHostName(host);
+  const { host, hostname } = remote;
 
   if (
     hostname === "codeberg.org" ||

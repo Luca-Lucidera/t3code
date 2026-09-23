@@ -5,8 +5,55 @@ import {
   detectSourceControlProviderFromRemoteUrl,
   getChangeRequestTerminologyForKind,
   isSshRemoteUrl,
+  parseGitRemote,
   resolveChangeRequestPresentation,
 } from "./sourceControl.ts";
+
+describe("parseGitRemote", () => {
+  it("keeps a web remote's port but marks an SSH remote's as not the web host's", () => {
+    expect(parseGitRemote("https://Git.Example.Test:8443/group/repo.git")).toEqual({
+      host: "git.example.test:8443",
+      hostname: "git.example.test",
+      ssh: false,
+      path: "group/repo",
+    });
+    expect(parseGitRemote("ssh://git@git.example.test:8888/group/sub/repo.git")).toEqual({
+      host: "git.example.test:8888",
+      hostname: "git.example.test",
+      ssh: true,
+      path: "group/sub/repo",
+    });
+  });
+
+  it("reads SCP remotes with or without a user, including bracketed IPv6 hosts", () => {
+    const expected = { host: "git.example.test", hostname: "git.example.test", ssh: true };
+    expect(parseGitRemote("git@git.example.test:group/repo.git")).toEqual({
+      ...expected,
+      path: "group/repo",
+    });
+    expect(parseGitRemote("git.example.test:group/repo.git")).toEqual({
+      ...expected,
+      path: "group/repo",
+    });
+    expect(parseGitRemote("git@[::1]:group/repo.git")).toEqual({
+      host: "[::1]",
+      hostname: "[::1]",
+      ssh: true,
+      path: "group/repo",
+    });
+  });
+
+  it("gives no host for local paths", () => {
+    for (const path of [
+      "/srv/repo.git",
+      "C:\\repos\\repo",
+      "C:/repos/repo",
+      "file:///srv/repo.git",
+    ]) {
+      expect(parseGitRemote(path)).toBeNull();
+    }
+  });
+});
 
 describe("source control presentation", () => {
   it("uses merge request terminology for GitLab", () => {
