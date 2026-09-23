@@ -295,7 +295,7 @@ export function parseRepositoryNameWithOwnerFromRemoteUrl(
   }
 
   const match =
-    /^(?:[^@/\s]+@[^:/\s]+:|(?:ssh|https?|git):\/\/[^/]+\/)((?:[^/\s]+\/)+[^/\s]+?)(?:\.git)?\/?$/iu.exec(
+    /^(?:(?:[^@/\s]+@)?[^:/\s]+:(?!\/\/)|(?:ssh|https?|git):\/\/[^/]+\/)((?:[^/\s]+\/)+[^/\s]+?)(?:\.git)?\/?$/iu.exec(
       trimmed,
     );
   const repositoryNameWithOwner = match?.[1]?.trim() ?? "";
