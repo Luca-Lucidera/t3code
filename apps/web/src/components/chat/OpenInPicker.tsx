@@ -223,6 +223,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   environmentId,
   keybindings,
   openInCwd,
+  openInLine,
   presentation = "toolbar",
   compact = false,
   enableShortcut = true,
@@ -230,6 +231,8 @@ export const OpenInPicker = memo(function OpenInPicker({
   environmentId: EnvironmentId;
   keybindings: ResolvedKeybindingsConfig;
   openInCwd: string | null;
+  /** Set when `openInCwd` is a file, so remote editor links open the file instead of a folder. */
+  openInLine?: number;
   presentation?: "toolbar" | "menu";
   compact?: boolean;
   enableShortcut?: boolean;
@@ -278,6 +281,7 @@ export const OpenInPicker = memo(function OpenInPicker({
           host: remote.host.host,
           absolutePath: openInCwd,
           authority: remote.host.kind === "wsl" ? "wsl" : "ssh-remote",
+          ...(openInLine === undefined ? {} : { line: openInLine }),
         });
         if (url === undefined) return;
         // Only record hint-seen/preferred when the shell actually accepted
@@ -304,6 +308,7 @@ export const OpenInPicker = memo(function OpenInPicker({
       markRemoteHintSeen,
       openInCwd,
       openInEditorMutation,
+      openInLine,
       preferredEditor,
       remote,
       setPreferredEditor,

@@ -129,6 +129,18 @@ describe("buildRemoteOpenUrl", () => {
     ).toBe("vscode://vscode-remote/ssh-remote+sol.tail1234.ts.net/home/theo/code/my%20repo");
   });
 
+  it("ends file links with the line so VS Code opens a file, not a folder", () => {
+    expect(
+      buildRemoteOpenUrl({
+        editor: "vscode",
+        host: "Debian",
+        absolutePath: "/home/luca/code/t3code/apps/desktop/src/main.ts",
+        authority: "wsl",
+        line: 12,
+      }),
+    ).toBe("vscode://vscode-remote/wsl+Debian/home/luca/code/t3code/apps/desktop/src/main.ts:12");
+  });
+
   it("uses the fork's scheme", () => {
     expect(buildRemoteOpenUrl({ editor: "cursor", host: "sol", absolutePath: "/tmp/x" })).toBe(
       "cursor://vscode-remote/ssh-remote+sol/tmp/x",

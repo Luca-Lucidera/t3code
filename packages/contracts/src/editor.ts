@@ -119,12 +119,16 @@ export const supportsRemoteOpenAuthority = (
  * the editor's Remote WSL integration. Zed takes `zed://ssh/<host><path>`
  * and has no WSL form. Returns undefined for editors without deep-link support
  * for the authority.
+ *
+ * VS Code opens a `vscode-remote` path as a folder unless it ends in
+ * `:<line>`, so pass `line` when `absolutePath` is a file.
  */
 export const buildRemoteOpenUrl = (input: {
   readonly editor: EditorId;
   readonly host: string;
   readonly absolutePath: string;
   readonly authority?: RemoteOpenAuthority;
+  readonly line?: number;
 }): string | undefined => {
   const authority = input.authority ?? "ssh-remote";
   const scheme = remoteSchemeForEditor(input.editor);
@@ -145,7 +149,8 @@ export const buildRemoteOpenUrl = (input: {
     return `${scheme}://ssh/${encodedHost}${encodedZedPath}`;
   }
   const encodedPath = rootedPath.split("/").map(encodeURIComponent).join("/");
-  return `${scheme}://vscode-remote/${authority}+${encodedHost}${encodedPath}`;
+  const lineSuffix = input.line === undefined ? "" : `:${input.line}`;
+  return `${scheme}://vscode-remote/${authority}+${encodedHost}${encodedPath}${lineSuffix}`;
 };
 
 /**
