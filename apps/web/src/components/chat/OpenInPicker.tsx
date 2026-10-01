@@ -232,7 +232,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   keybindings: ResolvedKeybindingsConfig;
   openInCwd: string | null;
   /** Set when `openInCwd` is a file, so remote editor links open the file instead of a folder. */
-  openInLine?: number;
+  openInLine?: number | undefined;
   presentation?: "toolbar" | "menu";
   compact?: boolean;
   enableShortcut?: boolean;
